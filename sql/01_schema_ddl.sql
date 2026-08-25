@@ -1,15 +1,3 @@
-# SSD Assignment - GigTask
-### Team 9
-- Anuj Sharma - 2026201046
-- Nisarg Bhojani - 2026xxxxxx
-- Srilatha Kanchamreddy - 2026xxxxxx
-- Vishwanth Beereddy - 2026xxxxxx
-
-##
-## **Task 1 - Schema Creation**
-
-- [*PostgreSQL*](sql/01_schema_ddl.sql)
-```sql
 CREATE TABLE clients(
 	id UUID PRIMARY KEY,
 	name VARCHAR(100),
@@ -40,5 +28,3 @@ CREATE TABLE contracts(
 	budget FLOAT4,
 	status VARCHAR(20)
 );
-```
-
