@@ -28,3 +28,5 @@ CREATE TABLE contracts(
 	budget FLOAT4,
 	status VARCHAR(20)
 );
+
+ALTER TABLE contracts ADD CONSTRAINT status_check CHECK(status IN ('FUNDED', 'IN_PROGRESS', 'COMPLETED'))
