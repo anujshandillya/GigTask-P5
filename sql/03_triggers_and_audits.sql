@@ -10,11 +10,11 @@ BEGIN
             gen_random_uuid(),
             NEW.id,
             NEW.escrow_balance - OLD.escrow_balance,
-            CASE
+            (CASE
                 WHEN NEW.escrow_balance > OLD.escrow_balance
-                    THEN 'CREDIT'
-                ELSE 'DEBIT'
-            END,
+                    THEN 'CREDIT'::audit_action_type
+                ELSE 'DEBIT'::audit_action_type
+            END),
             NEW.escrow_balance
         );
 
