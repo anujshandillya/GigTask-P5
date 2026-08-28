@@ -7,7 +7,7 @@ CREATE TABLE clients(
 CREATE TABLE wallet_audit_logs(
 	id UUID PRIMARY KEY,
 	client_id UUID REFERENCES clients(id),
-	amount_changed INT,
+	amount_changed DECIMAL(10,2),
 	action_type VARCHAR(20),
 	balance_after DECIMAL(10,2) CHECK (balance_after >= 0.00),
 	timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -25,8 +25,9 @@ CREATE TABLE contracts(
 	id UUID PRIMARY KEY,
 	client_id UUID REFERENCES clients(id),
 	freelancer_id UUID REFERENCES freelancers(id),
-	budget FLOAT4,
-	status VARCHAR(20)
+	budget DECIMAL(10,2),
+	status VARCHAR(20),
+	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 ALTER TABLE contracts ADD CONSTRAINT status_check CHECK(status IN ('FUNDED', 'IN_PROGRESS', 'COMPLETED'))
