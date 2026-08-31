@@ -203,6 +203,67 @@ END;
 $$;
 ```
 
+## **Task 6 - SQL Analytics (Workflow 2)**
+
+- [06_window_analytics.sql](sql/06_window_analytics.sql)
+
+Two analytics queries built on a CTE + window functions, plus a partial
+covering index that specifically supports them:
+
+1. **Daily platform revenue with a 7-day moving average** - groups completed
+   contracts by day, then uses `AVG() OVER (... ROWS BETWEEN 6 PRECEDING AND
+   CURRENT ROW)` to smooth the trend.
+2. **Freelancer revenue ranking** - totals each freelancer's completed-contract
+   revenue, then ranks them with `DENSE_RANK()` so tied earners share a rank.
+
+```sql
+CREATE INDEX IF NOT EXISTS idx_contracts_completed_analytics
+ON contracts (status, freelancer_id, created_at)
+INCLUDE (budget)
+WHERE status = 'COMPLETED';
+
+WITH daily_revenue AS (
+    SELECT created_at::date AS revenue_date, SUM(budget) AS daily_total
+    FROM contracts
+    WHERE status = 'COMPLETED'
+    GROUP BY created_at::date
+)
+SELECT revenue_date, daily_total,
+    ROUND(AVG(daily_total) OVER (
+        ORDER BY revenue_date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
+    ), 2) AS moving_avg_7day
+FROM daily_revenue
+ORDER BY revenue_date;
+
+WITH freelancer_revenue AS (
+    SELECT f.id AS freelancer_id, f.name AS freelancer_name,
+        COUNT(c.id) AS completed_contracts, COALESCE(SUM(c.budget), 0) AS total_revenue
+    FROM freelancers f
+    JOIN contracts c ON c.freelancer_id = f.id AND c.status = 'COMPLETED'
+    GROUP BY f.id, f.name
+)
+SELECT freelancer_id, freelancer_name, completed_contracts, total_revenue,
+    DENSE_RANK() OVER (ORDER BY total_revenue DESC) AS revenue_rank
+FROM freelancer_revenue
+ORDER BY revenue_rank, freelancer_name
+LIMIT 100;
+```
+
+## **Task 7 - Performance Testing (PostgreSQL)**
+
+- [postgres_explain_analyzes.txt](performance/postgres_explain_analyzes.txt)
+
+`EXPLAIN (ANALYZE, BUFFERS)` was run against a full-scale seeded database
+(50k clients, 50k freelancers, 100k contracts, 100k audit logs). Key finding:
+both Workflow 2 queries correctly use a **Sequential Scan** on `contracts`
+because 56% of rows match `status = 'COMPLETED'` - past that selectivity a
+seq scan beats an index scan, and Postgres's cost-based optimizer picks it
+correctly even after the supporting index exists. To prove the index isn't
+dead weight, a third, realistic point-lookup query (one freelancer's
+contract history - 1 match out of 50,000) was also tested and confirmed to
+use `Index Scan using idx_contracts_completed_analytics` at ~5ms. Full
+plans and the reasoning are in the file linked above.
+
 ## **Task X - Python Scripts for data generation**
 
 - [.env.example](./.env.example)
