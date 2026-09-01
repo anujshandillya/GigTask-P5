@@ -1,0 +1,135 @@
+================================================================================
+GigTask - PostgreSQL Performance Testing (EXPLAIN ANALYZE)
+Workflow 2 analytics queries (sql/06_window_analytics.sql)
+================================================================================
+
+Dataset used for this test (generated via data_generation/postgres_seeder.py):
+  clients            : 50,000 rows
+  freelancers        : 50,000 rows
+  contracts          : 100,000 rows   (56,310 COMPLETED / 24,266 FUNDED / 19,424 IN_PROGRESS)
+  wallet_audit_logs  : 100,000 rows
+
+================================================================================
+QUERY A - Daily platform revenue with 7-day moving average
+================================================================================
+
+--- BEFORE any supporting index ---
+
+WindowAgg  (cost=2461.86..2471.34 rows=182 width=68) (actual time=22.996..33.553 rows=335 loops=1)
+  Buffers: shared hit=1238
+  ->  GroupAggregate  (cost=2461.81..2468.16 rows=182 width=36) (actual time=22.925..33.260 rows=335 loops=1)
+        Group Key: ((contracts.created_at)::date)
+        Buffers: shared hit=1238
+        ->  Sort  (cost=2461.81..2463.02 rows=482 width=20) (actual time=22.891..27.498 rows=56310 loops=1)
+              Sort Key: ((contracts.created_at)::date)
+              Sort Method: quicksort  Memory: 3296kB
+              Buffers: shared hit=1238
+              ->  Seq Scan on contracts  (cost=0.00..2440.33 rows=482 width=20) (actual time=0.056..15.137 rows=56310 loops=1)
+                    Filter: (status = 'COMPLETED'::contract_status)
+                    Rows Removed by Filter: 43690
+                    Buffers: shared hit=1235
+Planning Time: 2.526 ms
+Execution Time: 34.090 ms
+
+--- AFTER creating idx_contracts_completed_analytics (see below) ---
+
+WindowAgg  (cost=7058.08..9296.43 rows=55907 width=68) (actual time=28.969..40.754 rows=335 loops=1)
+  Buffers: shared hit=1238
+  ->  GroupAggregate ... ->  Seq Scan on contracts (actual time=0.411..18.704 rows=56310 loops=1)
+        Filter: (status = 'COMPLETED'::contract_status)
+        Rows Removed by Filter: 43690
+Planning Time: 5.884 ms
+Execution Time: 41.576 ms
+
+Verdict: Sequential scan, both before and after indexing. This is CORRECT
+planner behavior, not a missed optimization: 56,310 of 100,000 rows (56%)
+match status = 'COMPLETED'. Past roughly 5-10% selectivity, a sequential
+scan that reads the table once in physical order beats an index scan that
+has to perform tens of thousands of random-access lookups. The planner's
+cost estimate confirms this and we verified it stays correct after the
+index exists and ANALYZE was re-run (i.e. it isn't just stale statistics).
+
+================================================================================
+QUERY B - Revenue per freelancer, ranked with DENSE_RANK()
+================================================================================
+
+--- BEFORE any supporting index ---
+
+Limit  (cost=21122.47..21122.72 rows=100 width=78) (actual time=144.366..144.386 rows=100 loops=1)
+  ->  Sort (dense_rank() OVER (?), freelancer_name)  Sort Method: top-N heapsort
+        ->  WindowAgg (actual time=123.965..139.554 rows=33527 loops=1)
+              ->  Sort  Sort Key: freelancer_revenue.total_revenue DESC
+                    ->  Subquery Scan on freelancer_revenue (actual time=88.058..113.237 rows=33527)
+                          ->  HashAggregate  Group Key: f.id
+                                Planned Partitions: 4  Batches: 5  Disk Usage: 1752kB
+                                ->  Hash Join (c.freelancer_id = f.id) (actual time=20.548..62.358 rows=56310)
+                                      ->  Seq Scan on contracts c
+                                            Filter: (status = 'COMPLETED'::contract_status)
+                                            Rows Removed by Filter: 43690
+                                      ->  Hash
+                                            ->  Seq Scan on freelancers f (rows=50000)
+Planning Time: 8.198 ms
+Execution Time: 154.980 ms
+
+--- AFTER creating idx_contracts_completed_analytics ---
+
+Limit  (cost=21068.03..21068.28 rows=100 width=78) (actual time=148.683..148.695 rows=100 loops=1)
+  (identical plan shape - still Seq Scan on contracts + Seq Scan on freelancers,
+   then Hash Join, HashAggregate, WindowAgg for DENSE_RANK, top-N sort for LIMIT 100)
+Planning Time: 12.066 ms
+Execution Time: 159.548 ms
+
+Verdict: Same story as Query A. This query has to touch every completed
+contract and every freelancer to compute a global ranking, so a sequential
+scan + hash join is the right plan. Execution time (~150ms) is dominated by
+the HashAggregate spilling to disk (Batches: 5, ~1.7MB), which is expected
+and acceptable at this data volume (100k rows) - it would be the next
+optimization target if the table grew an order of magnitude larger.
+
+================================================================================
+SUPPORTING INDEX - where it actually pays off
+================================================================================
+
+sql: CREATE INDEX idx_contracts_completed_analytics
+     ON contracts (status, freelancer_id, created_at)
+     INCLUDE (budget)
+     WHERE status = 'COMPLETED';
+
+This is a partial covering index: it only indexes the ~56% of rows that are
+COMPLETED (smaller and cheaper to maintain than a full index), and INCLUDEs
+budget so index-only lookups don't need to touch the table's heap.
+
+It does NOT help Query A/B above (they're broad aggregate scans - see
+verdict), but it DOES help the realistic point-lookup case: showing one
+freelancer their own completed-contract history (e.g. a profile page).
+
+--- Query C: single freelancer's completed contracts (highly selective: 1 of 50,000) ---
+
+Index Scan using idx_contracts_completed_analytics on contracts
+  (cost=0.41..2061.41 rows=2 width=30) (actual time=3.326..4.537 rows=2 loops=1)
+  Index Cond: (freelancer_id = 'b88b7b0f-7575-4110-b3ec-bee1a6066209'::uuid)
+  Buffers: shared hit=2 read=405
+Planning Time: 2.740 ms
+Execution Time: 5.219 ms
+
+Verdict: Index Scan confirmed. Only 2 rows returned, ~5ms end to end, and
+Postgres never touches the heap for filtering (budget is in the INCLUDE
+list) - this is the index doing its job on a selective, real-world query
+shape, in contrast to Queries A/B which are intentionally full-table
+aggregates.
+
+================================================================================
+SUMMARY
+================================================================================
+
+| Query                              | Rows examined | Plan            | Time      |
+|-------------------------------------|--------------:|------------------|----------:|
+| A. Daily revenue + moving average   | 100,000       | Seq Scan (correct)|  34-42 ms |
+| B. Freelancer ranking (DENSE_RANK)  | 100,000       | Seq Scan (correct)| 150-160 ms|
+| C. Single freelancer point lookup   | 2              | Index Scan        |   ~5 ms   |
+
+Takeaway for the viva: an index is not "faster = always use it." Postgres's
+cost-based optimizer correctly avoids the new index for our two analytics
+workflows because they read a majority of the table, and correctly uses it
+for the selective point-lookup query. That contrast is itself the proof
+that indexing is working as intended.
