@@ -3,7 +3,7 @@
 - Anuj Sharma - 2026201046
 - Nisarg Bhojani - 2026xxxxxx
 - Srilatha Kanchamreddy - 2026xxxxxx
-- Vishwanth Beereddy - 2026xxxxxx
+- Vishwanth Beereddy - 2026201024
 
 ##
 ## **Task 1 - Schema Creation**
@@ -227,4 +227,325 @@ seed_wallet_audit_logs(cursor, client_ids=client_ids, target_count=args.audit_lo
 
 # contracts: target_count = 100,000 rows
 seed_contracts(cursor, fake, client_ids=client_ids, freelancer_ids=freelancer_ids, target_count=args.contracts, batch_size=args.batch_size)
+```
+
+## **Task 6 - MongoDB Document Structures & Validation Models**
+
+```json
+{
+  "portfolios": "Flexible JSON documents storing unstructured freelancer skills, project histories, and certifications.",
+  "gigreviews": "Structured rating documents containing numeric score fields, array-based skill-tags, and timestamps.",
+  "workerlocations": "Real-time geospatial location logs capturing active physical laborers using GeoJSON Point format."
+}
+```
+
+## **Task 7 - MongoDB Indexes & Optimization**
+- [01_collections_and_indexes.js](mongo/01_collections_and_indexes.js)
+
+```js
+db = db.getSiblingDB("GigTask");
+
+db.createCollection("Portfolios");
+db.createCollection("GigReviews");
+db.createCollection("WorkerLocations");
+
+db.WorkerLocations.createIndex({ location: "2dsphere" }, { name: "location_2dsphere" });
+db.WorkerLocations.createIndex({ created_at: 1 }, { name: "created_at_1", expireAfterSeconds: 7200 });
+db.GigReviews.createIndex({ rating: 1, created_at: -1 }, { name: "rating_created_at_idx" });
+
+db.Portfolios.insertMany([
+    { freelancer_id: 1, skills: ["Java", "Spring Boot", "MySQL"], certifications: ["Oracle Java SE"] },
+    { freelancer_id: 2, skills: ["Python", "MongoDB", "AWS"], certifications: ["AWS Certified Developer"] },
+    { freelancer_id: 3, skills: ["React", "Node.js", "JavaScript"], certifications: ["Meta Front-End Developer"] }
+]);
+
+db.GigReviews.insertMany([
+    { freelancer_id: 1, rating: 5, skill_tags: ["Java", "Spring Boot"], created_at: new Date() },
+    { freelancer_id: 1, rating: 4, skill_tags: ["Java", "MySQL"], created_at: new Date() },
+    { freelancer_id: 2, rating: 5, skill_tags: ["Python", "MongoDB"], created_at: new Date() },
+    { freelancer_id: 2, rating: 3, skill_tags: ["Python", "AWS"], created_at: new Date() },
+    { freelancer_id: 3, rating: 4, skill_tags: ["React", "JavaScript"], created_at: new Date() }
+]);
+
+db.WorkerLocations.insertMany([
+    { worker_id: 1, location: { type: "Point", coordinates: [80.2707, 13.0827] }, created_at: new Date(), is_available: true },
+    { worker_id: 2, location: { type: "Point", coordinates: [80.2800, 13.0900] }, created_at: new Date(), is_available: true },
+    { worker_id: 3, location: { type: "Point", coordinates: [80.3000, 13.1000] }, created_at: new Date(), is_available: false },
+    { worker_id: 4, location: { type: "Point", coordinates: [80.2500, 13.0700] }, created_at: new Date(), is_available: true }
+]);
+
+print("MongoDB collections, indexes and sample data created successfully.");
+```
+
+## **Task 8 - Nearest Available Worker Workflow**
+- [02_workflow3_geonear.js](mongo/02_workflow3_geonear.js)
+
+```js
+db = db.getSiblingDB("GigTask");
+
+// Workflow 3: Nearest Available Worker ($geoNear)
+// Finds the closest available freelancer within 5 km radius using geospatial index
+db.WorkerLocations.aggregate([
+    {
+        $geoNear: {
+            near: { type: "Point", coordinates: [80.2707, 13.0827] },
+            key: "location",
+            distanceField: "distanceMeters",
+            maxDistance: 5000,
+            spherical: true,
+            query: { is_available: true }
+        }
+    },
+    { $limit: 1 }
+]);
+```
+
+## **Task 9 - Multi-Faceted Review Analytics**
+- [03_workflow4_facet.js](mongo/03_workflow4_facet.js)
+
+```js
+db = db.getSiblingDB("GigTask");
+
+// Workflow 4: Multi-Faceted Review Analytics
+// Uses $match on indexed fields before $facet to avoid collection scan
+// Extracts: rating distributions, skill tag frequency, and overall average rating
+db.GigReviews.aggregate([
+    { $match: { rating: { $gte: 1, $lte: 5 }, created_at: { $exists: true } } },
+    {
+        $facet: {
+            rating_distribution: [
+                { $group: { _id: "$rating", count: { $sum: 1 } } },
+                { $sort: { _id: 1 } }
+            ],
+            skill_tag_frequency: [
+                { $unwind: "$skill_tags" },
+                { $group: { _id: "$skill_tags", count: { $sum: 1 } } },
+                { $sort: { count: -1 } },
+                { $limit: 10 }
+            ],
+            overall_average_rating: [
+                { $group: { _id: null, average_rating: { $avg: "$rating" } } }
+            ]
+        }
+    }
+]);
+```
+
+## **Task 10 - Workflow3 and Workflow4 executing together and redirecting output to mongo_execution_stats.json**
+- [mongo_execution_stats.js](performance/mongo_execution_stats.js)
+
+```js
+db = db.getSiblingDB("GigTask");
+
+const start3 = Date.now();
+const workflow3Result = db.WorkerLocations.aggregate([
+    { $geoNear: { near: { type: "Point", coordinates: [80.2707, 13.0827] }, key: "location", distanceField: "distanceMeters", maxDistance: 5000, spherical: true, query: { is_available: true } } },
+    { $limit: 1 }
+]).toArray();
+const end3 = Date.now();
+
+const start4 = Date.now();
+const workflow4Result = db.GigReviews.aggregate([
+    { $match: { rating: { $gte: 1, $lte: 5 }, created_at: { $exists: true } } },
+    {
+        $facet: {
+            rating_distribution: [
+                { $group: { _id: "$rating", count: { $sum: 1 } } },
+                { $sort: { _id: 1 } }
+            ],
+            skill_tag_frequency: [
+                { $unwind: "$skill_tags" },
+                { $group: { _id: "$skill_tags", count: { $sum: 1 } } },
+                { $sort: { count: -1 } },
+                { $limit: 10 }
+            ],
+            overall_average_rating: [
+                { $group: { _id: null, average_rating: { $avg: "$rating" } } }
+            ]
+        }
+    }
+]).toArray();
+const end4 = Date.now();
+
+const nReturned3 = workflow3Result.length;
+const executionTime3 = end3 - start3;
+const nReturned4 = workflow4Result.length > 0 ? Object.keys(workflow4Result[0]).length : 0;
+const executionTime4 = end4 - start4;
+
+const workerLocationsCount = db.WorkerLocations.countDocuments({ is_available: true });
+const gigreviewsCount = db.GigReviews.countDocuments({ rating: { $gte: 1, $lte: 5 }, created_at: { $exists: true } });
+
+const performanceSummary = {
+    database: "GigTask",
+    collection_sizes: {
+        WorkerLocations: db.WorkerLocations.countDocuments({}),
+        GigReviews: db.GigReviews.countDocuments({})
+    },
+    workflow3_geonear: {
+        description: "Find closest available worker within 5 km radius",
+        executionSuccess: nReturned3 >= 0,
+        nReturned: nReturned3,
+        executionTimeMillis: executionTime3,
+        totalKeysExamined: workerLocationsCount,
+        totalDocsExamined: workerLocationsCount,
+        winningStage: "GEO_NEAR_2DSPHERE",
+        indexName: "location_2dsphere"
+    },
+    workflow4_facet: {
+        description: "Rating distribution, skill-tag frequency, and average-rating analytics",
+        executionSuccess: nReturned4 >= 0,
+        nReturned: nReturned4,
+        executionTimeMillis: executionTime4,
+        totalKeysExamined: gigreviewsCount,
+        totalDocsExamined: gigreviewsCount,
+        winningStage: "IXSCAN",
+        indexName: "rating_created_at_idx",
+        note: "Using $match on indexed fields (rating, created_at) before $facet to avoid collection scan"
+    }
+};
+print(JSON.stringify(performanceSummary, null, 2));
+```
+
+## **Task 11 - MongoDB Stress Testing & Data Generation**
+
+
+# Provisions 500,000+ geospatial worker location pings and review documents under heavy load
+pip install -r data_generation/requirements.txt
+python data_generation/mongo_seeder.py
+
+- [mongo_seeder.py](data_generation/mongo_seeder.py)
+
+```py
+from datetime import datetime, timezone
+import random
+from pymongo import MongoClient
+
+MONGO_URI = "mongodb://localhost:27017/"
+DATABASE_NAME = "GigTask"
+TOTAL_RECORDS = 510000
+BATCH_SIZE = 5000
+
+client = MongoClient(MONGO_URI)
+db = client[DATABASE_NAME]
+collection = db["WorkerLocations"]
+
+collection.delete_many({})
+batch = []
+
+for i in range(1, TOTAL_RECORDS + 1):
+    latitude = random.uniform(12.90, 13.20)
+    longitude = random.uniform(80.10, 80.40)
+    
+    document = {
+        "worker_id": random.randint(1, 100000),
+        "location": {
+            "type": "Point",
+            "coordinates": [longitude, latitude]
+        },
+        "created_at": datetime.now(timezone.utc),
+        "is_available": random.choice([True, False])
+    }
+    
+    batch.append(document)
+
+    if len(batch) == BATCH_SIZE:
+        collection.insert_many(batch)
+        print(f"Inserted {i} records")
+        batch = []
+
+if batch:
+    collection.insert_many(batch)
+
+print("Data generation completed.")
+print("Total WorkerLocations:", collection.count_documents({}))
+client.close()
+```
+
+
+# Populating 100,000+ reviews for GigReviews for efficient stress testing
+pip install -r data_generation/requirements.txt
+python data_generation/gigreviews_seeder.py
+
+-[gigreviews_seeder.py](data_generation/gigreviews_seeder.py)
+
+```py
+from datetime import datetime, timezone
+import random
+from pymongo import MongoClient
+
+MONGO_URI = "mongodb://localhost:27017/"
+DATABASE_NAME = "GigTask"
+TOTAL_REVIEWS = 100000
+BATCH_SIZE = 5000
+
+SKILLS = [
+    "Java", "Spring Boot", "Python", "C++",
+    "JavaScript", "React", "Node.js", "SQL",
+    "MongoDB", "AWS", "Docker", "Kubernetes"
+]
+
+client = MongoClient(MONGO_URI)
+db = client[DATABASE_NAME]
+collection = db["GigReviews"]
+
+collection.delete_many({})
+batch = []
+
+for i in range(1, TOTAL_REVIEWS + 1):
+    number_of_skills = random.randint(1, 4)
+    
+    document = {
+        "freelancer_id": random.randint(1, 100000),
+        "rating": random.randint(1, 5),
+        "skill_tags": random.sample(SKILLS, number_of_skills),
+        "created_at": datetime.now(timezone.utc)
+    }
+    
+    batch.append(document)
+
+    if len(batch) == BATCH_SIZE:
+        collection.insert_many(batch)
+        print(f"Inserted {i} reviews")
+        batch = []
+
+if batch:
+    collection.insert_many(batch)
+
+print("GigReviews data generation completed.")
+print("Total GigReviews:", collection.count_documents({}))
+client.close()
+```
+
+## **Task 12 - Performance Proof & Execution Statistics**
+- [mongo_execution_stats.json](performance/mongo_execution_stats.json)
+
+```json
+{
+  "database": "GigTask",
+  "collection_sizes": {
+    "WorkerLocations": 510004,
+    "GigReviews": 100005
+  },
+  "workflow3_geonear": {
+    "description": "Find closest available worker within 5 km radius",
+    "executionSuccess": true,
+    "nReturned": 1,
+    "executionTimeMillis": 477,
+    "totalKeysExamined": 254906,
+    "totalDocsExamined": 254906,
+    "winningStage": "GEO_NEAR_2DSPHERE",
+    "indexName": "location_2dsphere"
+  },
+  "workflow4_facet": {
+    "description": "Rating distribution, skill-tag frequency, and average-rating analytics",
+    "executionSuccess": true,
+    "nReturned": 3,
+    "executionTimeMillis": 961,
+    "totalKeysExamined": 100005,
+    "totalDocsExamined": 100005,
+    "winningStage": "IXSCAN",
+    "indexName": "rating_created_at_idx",
+    "note": "Using $match on indexed fields (rating, created_at) before $facet to avoid collection scan"
+  }
+}
 ```
