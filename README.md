@@ -467,7 +467,7 @@ print(JSON.stringify(output, null, 2));
 ## **Task 10 - MongoDB Stress Testing & Data Generation**
 
 
-# Provisions 500,000+ geospatial worker location pings and review documents under heavy load
+### Provisions 500,000+ geospatial worker location pings and review documents under heavy load
 pip install -r data_generation/requirements.txt
 python data_generation/mongo_seeder.py
 
@@ -522,7 +522,7 @@ client.close()
 ```
 
 
-# Populating 100,000+ reviews for GigReviews for efficient stress testing
+### Populating 100,000+ reviews for GigReviews for efficient stress testing
 pip install -r data_generation/requirements.txt
 python data_generation/gigreviews_seeder.py
 
