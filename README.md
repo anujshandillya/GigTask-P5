@@ -468,7 +468,7 @@ print(JSON.stringify(output, null, 2));
 
 
 ### Provisions 500,000+ geospatial worker location pings and review documents under heavy load
-pip install -r data_generation/requirements.txt
+pip install -r data_generation/requirements.txt  
 python data_generation/mongo_seeder.py
 
 - [mongo_seeder.py](data_generation/mongo_seeder.py)
@@ -523,10 +523,10 @@ client.close()
 
 
 ### Populating 100,000+ reviews for GigReviews for efficient stress testing
-pip install -r data_generation/requirements.txt
+pip install -r data_generation/requirements.txt  
 python data_generation/gigreviews_seeder.py
 
--[gigreviews_seeder.py](data_generation/gigreviews_seeder.py)
+- [gigreviews_seeder.py](data_generation/gigreviews_seeder.py)
 
 ```py
 from datetime import datetime, timezone
