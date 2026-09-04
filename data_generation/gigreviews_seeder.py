@@ -2,8 +2,11 @@ from datetime import datetime, timezone
 import random
 from faker import Faker
 from pymongo import MongoClient
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
-MONGO_URI = "mongodb://localhost:27017/"
+MONGO_URI = os.getenv("MONGO_URI")
 DATABASE_NAME = "GigTask"
 TOTAL_REVIEWS = 110000
 BATCH_SIZE = 5000
