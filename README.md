@@ -1,7 +1,7 @@
 # SSD Assignment - GigTask
 ### Team 9
 - Anuj Sharma - 2026201046
-- Nisarg Bhojani - 2026xxxxxx
+- Nisarg Bhojani - 2026204007
 - Srilatha Kanchamreddy - 2026xxxxxx
 - Vishwanth Beereddy - 2026201024
 
@@ -203,7 +203,33 @@ END;
 $$;
 ```
 
-## **Task 6 - SQL Analytics (Workflow 2)**
+## **Task 6 - PostgreSQL Data Generation**
+
+- [.env.example](./.env.example)
+```js
+# PostgreSQL Database Configuration
+PGHOST=localhost
+PGPORT=5432
+PGUSER=<pg_user>
+PGPASSWORD=<pg_password>
+PGDATABASE=<db_name>
+```
+- [postgres_seeder](data_generation/postgres_seeder.py)
+```py
+# clients: target_count = 50,000 rows
+seed_clients(cursor, fake, target_count=args.clients, batch_size=args.batch_size)
+
+# freelancers: target_count = 50,000 rows
+seed_freelancers(cursor, fake, target_count=args.freelancers, batch_size=args.batch_size)
+
+# wallet_audit_logs: target_count = 100,000 rows
+seed_wallet_audit_logs(cursor, client_ids=client_ids, target_count=args.audit_logs, batch_size=args.batch_size)
+
+# contracts: target_count = 100,000 rows
+seed_contracts(cursor, fake, client_ids=client_ids, freelancer_ids=freelancer_ids, target_count=args.contracts, batch_size=args.batch_size)
+```
+
+## **Task 7 - SQL Analytics (Workflow 2)**
 
 - [06_window_analytics.sql](sql/06_window_analytics.sql)
 
@@ -249,7 +275,7 @@ ORDER BY revenue_rank, freelancer_name
 LIMIT 100;
 ```
 
-## **Task 7 - Performance Testing (PostgreSQL)**
+## **Task 8 - Performance Testing (PostgreSQL)**
 
 - [postgres_explain_analyzes.txt](performance/postgres_explain_analyzes.txt)
 
@@ -264,33 +290,7 @@ contract history - 1 match out of 50,000) was also tested and confirmed to
 use `Index Scan using idx_contracts_completed_analytics` at ~5ms. Full
 plans and the reasoning are in the file linked above.
 
-## **Task X - Python Scripts for data generation**
-
-- [.env.example](./.env.example)
-```js
-# PostgreSQL Database Configuration
-PGHOST=localhost
-PGPORT=5432
-PGUSER=<pg_user>
-PGPASSWORD=<pg_password>
-PGDATABASE=<db_name>
-```
-- [postgres_seeder](data_generation/postgres_seeder.py)
-```py
-# clients: target_count = 50,000 rows
-seed_clients(cursor, fake, target_count=args.clients, batch_size=args.batch_size)
-
-# freelancers: target_count = 50,000 rows
-seed_freelancers(cursor, fake, target_count=args.freelancers, batch_size=args.batch_size)
-
-# wallet_audit_logs: target_count = 100,000 rows
-seed_wallet_audit_logs(cursor, client_ids=client_ids, target_count=args.audit_logs, batch_size=args.batch_size)
-
-# contracts: target_count = 100,000 rows
-seed_contracts(cursor, fake, client_ids=client_ids, freelancer_ids=freelancer_ids, target_count=args.contracts, batch_size=args.batch_size)
-```
-
-## **Task 6 - MongoDB Document Structures & Validation Models**
+## **Task 9 - MongoDB Document Structures & Validation Models**
 
 ```json
 {
@@ -300,7 +300,7 @@ seed_contracts(cursor, fake, client_ids=client_ids, freelancer_ids=freelancer_id
 }
 ```
 
-## **Task 7 - MongoDB Indexes & Optimization**
+## **Task 10 - MongoDB Indexes & Optimization**
 - [01_collections_and_indexes.js](mongo/01_collections_and_indexes.js)
 
 ```js
@@ -338,7 +338,7 @@ db.WorkerLocations.insertMany([
 print("MongoDB collections, indexes and sample data created successfully.");
 ```
 
-## **Task 8 - Nearest Available Worker Workflow**
+## **Task 11 - Nearest Available Worker Workflow**
 - [02_workflow3_geonear.js](mongo/02_workflow3_geonear.js)
 
 ```js
@@ -422,7 +422,7 @@ const output = {
 print(JSON.stringify(output, null, 2));
 ```
 
-## **Task 9 - Multi-Faceted Review Analytics Workflow**
+## **Task 12 - Multi-Faceted Review Analytics Workflow**
 - [03_workflow4_facet.js](mongo/03_workflow4_facet.js)
 
 ```js
@@ -525,7 +525,7 @@ const output = {
 print(JSON.stringify(output, null, 2));
 ```
 
-## **Task 10 - MongoDB Stress Testing & Data Generation**
+## **Task 13 - MongoDB Stress Testing & Data Generation**
 
 
 ### Provisions 500,000+ geospatial worker location pings and review documents under heavy load
@@ -641,7 +641,7 @@ print("Total GigReviews:", collection.count_documents({}))
 client.close()
 ```
 
-## **Task 11 - Performance Proof & Execution Statistics**
+## **Task 14 - Performance Proof & Execution Statistics (MongoDB)**
 - [mongo_execution_stats.json](performance/mongo_execution_stats.json)
 
 ```json
