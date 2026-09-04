@@ -1,4 +1,7 @@
 # GigTask Project Overview
+
+[Github Link of the Project](https://github.com/anujshandillya/GigTask-P5/tree/main)
+
 ### Team 9
 - **Anuj Sharma - 2026201046**
 - **Nisarg Bhojani - 2026204007**
@@ -264,6 +267,103 @@ This gives a leaderboard-like result without gaps in ranking, which is useful fo
 
 The `mongo/` folder contains scripts that operate on a database called `GigTask`.
 
+### Execution steps : 
+#### Populate WorkerLocations with 500,000+ and GigReviews with 100,000+ documents respectively
+- python data_generation/mongo_seeder.py
+- python data_generation/gigreviews_seeder.py
+#### Install required dependencies
+- pip install -r data_generation/requirements.txt
+#### Create collections and indexes, execute workflow3 and workflow4
+- mongosh "mongodb://localhost:27017/GigTask" mongo/01_collections_and_indexes.js
+- mongosh "mongodb://localhost:27017/GigTask" mongo/02_workflow3_geonear.js
+- mongosh "mongodb://localhost:27017/GigTask" mongo/03_workflow4_facet.js
+  
+### `data_generation/mongo_seeder.py`
+Populate WorkerLocations collection with 500,000+ entries
+
+```py
+MONGO_URI = "mongodb://localhost:27017/"
+DATABASE_NAME = "GigTask"
+TOTAL_RECORDS = 510000
+BATCH_SIZE = 5000
+
+fake = Faker()
+client = MongoClient(MONGO_URI)
+db = client[DATABASE_NAME]
+collection = db["WorkerLocations"]
+
+collection.delete_many({})
+batch = []
+
+for i in range(1, TOTAL_RECORDS + 1):
+    latitude = random.uniform(12.90, 13.20)
+    longitude = random.uniform(80.10, 80.40)
+
+    document = {
+        "worker_id": fake.random_int(min=1, max=100000),
+        "location": {
+            "type": "Point",
+            "coordinates": [longitude, latitude]
+        },
+        "created_at": datetime.now(timezone.utc),
+        "is_available": fake.boolean()
+    }
+
+    batch.append(document)
+
+    if len(batch) == BATCH_SIZE:
+        collection.insert_many(batch)
+        print(f"Inserted {i} records")
+        batch = []
+
+if batch:
+    collection.insert_many(batch)
+```
+### `data_generation/gigreviews_seeder.py`
+Populate GigReviews collection with 100,000+ entries
+
+```py
+MONGO_URI = "mongodb://localhost:27017/"
+DATABASE_NAME = "GigTask"
+TOTAL_REVIEWS = 110000
+BATCH_SIZE = 5000
+
+SKILLS = [
+    "Java", "Spring Boot", "Python", "C++",
+    "JavaScript", "React", "Node.js", "SQL",
+    "MongoDB", "AWS", "Docker", "Kubernetes"
+]
+
+fake = Faker()
+
+client = MongoClient(MONGO_URI)
+db = client[DATABASE_NAME]
+collection = db["GigReviews"]
+
+collection.delete_many({})
+batch = []
+
+for i in range(1, TOTAL_REVIEWS + 1):
+    number_of_skills = random.randint(1, 4)
+
+    document = {
+        "freelancer_id": fake.random_int(min=1, max=100000),
+        "rating": fake.random_int(min=1, max=5),
+        "skill_tags": random.sample(SKILLS, number_of_skills),
+        "created_at": datetime.now(timezone.utc)
+    }
+
+    batch.append(document)
+
+    if len(batch) == BATCH_SIZE:
+        collection.insert_many(batch)
+        print(f"Inserted {i} reviews")
+        batch = []
+
+if batch:
+    collection.insert_many(batch)
+
+```
 ### `mongo/01_collections_and_indexes.js`
 This is the base setup file. It creates collections and indexes used by the app workflows.
 
@@ -337,6 +437,141 @@ This is a very efficient way to compute:
 - average rating
 
 all from the same collection in one pass.
+
+### `performance/mongo_execution_stats.json`
+Saving the output and stats of Workflow 3 and Workflow 4 to the JSON file
+
+```json
+[
+{
+  "database": "GigTask",
+  "collection_sizes": {
+    "WorkerLocations": 510000,
+    "GigReviews": 110000
+  },
+  "workflow3_geonear": {
+    "description": "Find closest available freelancer within 5 km radius",
+    "job_site": {
+      "type": "Point",
+      "coordinates": [
+        80.2707,
+        13.0827
+      ]
+    },
+    "nearest_freelancer": {
+      "_id": "6a99af892b3bea579bffec05",
+      "worker_id": 57408,
+      "location": {
+        "type": "Point",
+        "coordinates": [
+          80.27033311950396,
+          13.082745150421266
+        ]
+      },
+      "created_at": "2026-09-03T17:34:01.762Z",
+      "is_available": true,
+      "distanceMeters": 40.09691658191861
+    },
+    "executionSuccess": true,
+    "nReturned": 1,
+    "executionTimeMillis": 12,
+    "totalKeysExamined": 288,
+    "totalDocsExamined": 283,
+    "winningStage": "GEO_NEAR_2DSPHERE",
+    "indexName": "location_2dsphere"
+  }
+},
+
+{
+  "database": "GigTask",
+  "collection_sizes": {
+    "WorkerLocations": 510000,
+    "GigReviews": 110000
+  },
+  "workflow4_facet": {
+    "description": "Rating distribution, top skill-tag frequency, and overall worker rating",
+    "rating_distribution": [
+      {
+        "_id": 1,
+        "count": 21905
+      },
+      {
+        "_id": 2,
+        "count": 21998
+      },
+      {
+        "_id": 3,
+        "count": 22230
+      },
+      {
+        "_id": 4,
+        "count": 21843
+      },
+      {
+        "_id": 5,
+        "count": 22024
+      }
+    ],
+    "skill_tag_frequency": [
+      {
+        "_id": "C++",
+        "count": 23069
+      },
+      {
+        "_id": "React",
+        "count": 22999
+      },
+      {
+        "_id": "MongoDB",
+        "count": 22998
+      },
+      {
+        "_id": "Java",
+        "count": 22978
+      },
+      {
+        "_id": "Python",
+        "count": 22955
+      },
+      {
+        "_id": "AWS",
+        "count": 22880
+      },
+      {
+        "_id": "Kubernetes",
+        "count": 22845
+      },
+      {
+        "_id": "SQL",
+        "count": 22828
+      },
+      {
+        "_id": "Docker",
+        "count": 22752
+      },
+      {
+        "_id": "Spring Boot",
+        "count": 22743
+      }
+    ],
+    "overall_average_rating": [
+      {
+        "_id": null,
+        "average_rating": 3.0007545454545457
+      }
+    ],
+    "executionSuccess": true,
+    "nReturned": 1,
+    "executionTimeMillis": 825,
+    "totalKeysExamined": 110000,
+    "totalDocsExamined": 110000,
+    "winningStage": "IXSCAN",
+    "indexName": "rating_created_at_idx"
+  }
+}
+]
+
+```
 
 ---
 
