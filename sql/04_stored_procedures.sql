@@ -1,3 +1,4 @@
+--  Workflow 1 - Atomic Gig Funding Procedure
 CREATE OR REPLACE PROCEDURE fund_gig(
     p_client_id UUID,
     p_freelancer_id UUID,
