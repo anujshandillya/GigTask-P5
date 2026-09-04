@@ -3,7 +3,7 @@
 - Anuj Sharma - 2026201046
 - Nisarg Bhojani - 2026xxxxxx
 - Srilatha Kanchamreddy - 2026xxxxxx
-- Vishwanth Beereddy - 2026xxxxxx
+- Vishwanth Beereddy - 2026201024
 
 ##
 ## **Task 1 - Schema Creation**
@@ -288,4 +288,489 @@ seed_wallet_audit_logs(cursor, client_ids=client_ids, target_count=args.audit_lo
 
 # contracts: target_count = 100,000 rows
 seed_contracts(cursor, fake, client_ids=client_ids, freelancer_ids=freelancer_ids, target_count=args.contracts, batch_size=args.batch_size)
+```
+
+## **Task 6 - MongoDB Document Structures & Validation Models**
+
+```json
+{
+  "portfolios": "Flexible JSON documents storing unstructured freelancer skills, project histories, and certifications.",
+  "gigreviews": "Structured rating documents containing numeric score fields, array-based skill-tags, and timestamps.",
+  "workerlocations": "Real-time geospatial location logs capturing active physical laborers using GeoJSON Point format."
+}
+```
+
+## **Task 7 - MongoDB Indexes & Optimization**
+- [01_collections_and_indexes.js](mongo/01_collections_and_indexes.js)
+
+```js
+db = db.getSiblingDB("GigTask");
+
+db.createCollection("Portfolios");
+db.createCollection("GigReviews");
+db.createCollection("WorkerLocations");
+
+db.WorkerLocations.createIndex({ location: "2dsphere" }, { name: "location_2dsphere" });
+db.WorkerLocations.createIndex({ created_at: 1 }, { name: "created_at_1", expireAfterSeconds: 7200 });
+db.GigReviews.createIndex({ rating: 1, created_at: -1 }, { name: "rating_created_at_idx" });
+
+db.Portfolios.insertMany([
+    { freelancer_id: 1, skills: ["Java", "Spring Boot", "MySQL"], certifications: ["Oracle Java SE"] },
+    { freelancer_id: 2, skills: ["Python", "MongoDB", "AWS"], certifications: ["AWS Certified Developer"] },
+    { freelancer_id: 3, skills: ["React", "Node.js", "JavaScript"], certifications: ["Meta Front-End Developer"] }
+]);
+
+db.GigReviews.insertMany([
+    { freelancer_id: 1, rating: 5, skill_tags: ["Java", "Spring Boot"], created_at: new Date() },
+    { freelancer_id: 1, rating: 4, skill_tags: ["Java", "MySQL"], created_at: new Date() },
+    { freelancer_id: 2, rating: 5, skill_tags: ["Python", "MongoDB"], created_at: new Date() },
+    { freelancer_id: 2, rating: 3, skill_tags: ["Python", "AWS"], created_at: new Date() },
+    { freelancer_id: 3, rating: 4, skill_tags: ["React", "JavaScript"], created_at: new Date() }
+]);
+
+db.WorkerLocations.insertMany([
+    { worker_id: 1, location: { type: "Point", coordinates: [80.2707, 13.0827] }, created_at: new Date(), is_available: true },
+    { worker_id: 2, location: { type: "Point", coordinates: [80.2800, 13.0900] }, created_at: new Date(), is_available: true },
+    { worker_id: 3, location: { type: "Point", coordinates: [80.3000, 13.1000] }, created_at: new Date(), is_available: false },
+    { worker_id: 4, location: { type: "Point", coordinates: [80.2500, 13.0700] }, created_at: new Date(), is_available: true }
+]);
+
+print("MongoDB collections, indexes and sample data created successfully.");
+```
+
+## **Task 8 - Nearest Available Worker Workflow**
+- [02_workflow3_geonear.js](mongo/02_workflow3_geonear.js)
+
+```js
+db = db.getSiblingDB("GigTask");
+
+// Required indexes
+db.WorkerLocations.createIndex(
+    { location: "2dsphere" },
+    { name: "location_2dsphere" }
+);
+
+db.WorkerLocations.createIndex(
+    { created_at: 1 },
+    { name: "created_at_1", expireAfterSeconds: 7200 }
+);
+
+// Physical job site coordinates
+const jobSite = {
+    type: "Point",
+    coordinates: [80.2707, 13.0827]
+};
+
+// Workflow 3: Nearest Available Freelancer
+const nearestFreelancer = db.WorkerLocations.aggregate([
+    {
+        $geoNear: {
+            near: jobSite,
+            key: "location",
+            distanceField: "distanceMeters",
+            maxDistance: 5000,
+            spherical: true,
+            query: { is_available: true }
+        }
+    },
+    { $limit: 1 }
+]).toArray();
+
+// Explain Workflow 3
+const workflow3Explain = db.WorkerLocations
+    .explain("executionStats")
+    .aggregate([
+        {
+            $geoNear: {
+                near: jobSite,
+                key: "location",
+                distanceField: "distanceMeters",
+                maxDistance: 5000,
+                spherical: true,
+                query: { is_available: true }
+            }
+        },
+        { $limit: 1 }
+    ]);
+
+// Extract execution statistics
+const geoStats = workflow3Explain.stages[0].$geoNearCursor.executionStats;
+const geoPlan = workflow3Explain.stages[0].$geoNearCursor.queryPlanner.winningPlan;
+const geoInputPlan = geoPlan.inputStage || geoPlan;
+
+// Final output
+const output = {
+    database: "GigTask",
+    collection_sizes: {
+        WorkerLocations: db.WorkerLocations.countDocuments({}),
+        GigReviews: db.GigReviews.countDocuments({})
+    },
+    workflow3_geonear: {
+        description: "Find closest available freelancer within 5 km radius",
+        job_site: jobSite,
+        nearest_freelancer: nearestFreelancer.length > 0 ? nearestFreelancer[0] : null,
+        executionSuccess: geoStats.executionSuccess,
+        nReturned: Number(workflow3Explain.stages[1].nReturned),
+        executionTimeMillis: geoStats.executionTimeMillis,
+        totalKeysExamined: geoStats.totalKeysExamined,
+        totalDocsExamined: geoStats.totalDocsExamined,
+        winningStage: geoInputPlan.stage,
+        indexName: geoInputPlan.indexName || null
+    }
+};
+
+print(JSON.stringify(output, null, 2));
+```
+
+## **Task 9 - Multi-Faceted Review Analytics Workflow**
+- [03_workflow4_facet.js](mongo/03_workflow4_facet.js)
+
+```js
+db = db.getSiblingDB("GigTask");
+
+// Required index for Workflow 4
+db.GigReviews.createIndex(
+    { rating: 1, created_at: -1 },
+    { name: "rating_created_at_idx" }
+);
+
+// Workflow 4: Multi-Faceted Review Analytics
+const workflow4Pipeline = [
+    { $match: { rating: { $gte: 1, $lte: 5 }, created_at: { $exists: true } } },
+    {
+        $facet: {
+            rating_distribution: [
+                { $group: { _id: "$rating", count: { $sum: 1 } } },
+                { $sort: { _id: 1 } }
+            ],
+            skill_tag_frequency: [
+                { $unwind: "$skill_tags" },
+                { $group: { _id: "$skill_tags", count: { $sum: 1 } } },
+                { $sort: { count: -1 } },
+                { $limit: 10 }
+            ],
+            overall_average_rating: [
+                { $group: { _id: null, average_rating: { $avg: "$rating" } } }
+            ]
+        }
+    }
+];
+
+// Execute Workflow 4
+const workflow4Result = db.GigReviews.aggregate(workflow4Pipeline).toArray();
+
+// Explain Workflow 4
+const workflow4Explain = db.GigReviews
+    .explain("executionStats")
+    .aggregate(workflow4Pipeline);
+
+// Find actual IXSCAN stage
+function findIndexStage(plan) {
+    if (!plan) {
+        return null;
+    }
+
+    if (plan.stage === "IXSCAN") {
+        return plan;
+    }
+
+    if (plan.inputStage) {
+        const result = findIndexStage(plan.inputStage);
+
+        if (result) {
+            return result;
+        }
+    }
+
+    if (plan.inputStages) {
+        for (const stage of plan.inputStages) {
+            const result = findIndexStage(stage);
+
+            if (result) {
+                return result;
+            }
+        }
+    }
+
+    return null;
+}
+
+// Extract execution statistics
+const facetStats = workflow4Explain.stages[0].$cursor.executionStats;
+const facetPlan = workflow4Explain.stages[0].$cursor.queryPlanner.winningPlan;
+const facetIndexStage = findIndexStage(facetPlan);
+
+// Final output
+const output = {
+    database: "GigTask",
+    collection_sizes: {
+        WorkerLocations: db.WorkerLocations.countDocuments({}),
+        GigReviews: db.GigReviews.countDocuments({})
+    },
+    workflow4_facet: {
+        description: "Rating distribution, top skill-tag frequency, and overall worker rating",
+        rating_distribution: workflow4Result.length > 0 ? workflow4Result[0].rating_distribution : [],
+        skill_tag_frequency: workflow4Result.length > 0 ? workflow4Result[0].skill_tag_frequency : [],
+        overall_average_rating: workflow4Result.length > 0 ? workflow4Result[0].overall_average_rating : [],
+        executionSuccess: facetStats.executionSuccess,
+        nReturned: 1,
+        executionTimeMillis: facetStats.executionTimeMillis,
+        totalKeysExamined: facetStats.totalKeysExamined,
+        totalDocsExamined: facetStats.totalDocsExamined,
+        winningStage: facetIndexStage ? facetIndexStage.stage : facetPlan.stage,
+        indexName: facetIndexStage ? facetIndexStage.indexName : null
+    }
+};
+
+print(JSON.stringify(output, null, 2));
+```
+
+## **Task 10 - MongoDB Stress Testing & Data Generation**
+
+
+### Provisions 500,000+ geospatial worker location pings and review documents under heavy load
+pip install -r data_generation/requirements.txt  
+python data_generation/mongo_seeder.py
+
+- [mongo_seeder.py](data_generation/mongo_seeder.py)
+
+```py
+from datetime import datetime, timezone
+import random
+from faker import Faker
+from pymongo import MongoClient
+
+MONGO_URI = "mongodb://localhost:27017/"
+DATABASE_NAME = "GigTask"
+TOTAL_RECORDS = 510000
+BATCH_SIZE = 5000
+
+fake = Faker()
+client = MongoClient(MONGO_URI)
+db = client[DATABASE_NAME]
+collection = db["WorkerLocations"]
+
+collection.delete_many({})
+batch = []
+
+for i in range(1, TOTAL_RECORDS + 1):
+    latitude = random.uniform(12.90, 13.20)
+    longitude = random.uniform(80.10, 80.40)
+
+    document = {
+        "worker_id": fake.random_int(min=1, max=100000),
+        "location": {
+            "type": "Point",
+            "coordinates": [longitude, latitude]
+        },
+        "created_at": datetime.now(timezone.utc),
+        "is_available": fake.boolean()
+    }
+
+    batch.append(document)
+
+    if len(batch) == BATCH_SIZE:
+        collection.insert_many(batch)
+        print(f"Inserted {i} records")
+        batch = []
+
+if batch:
+    collection.insert_many(batch)
+
+print("Data generation completed.")
+print("Total WorkerLocations:", collection.count_documents({}))
+client.close()
+```
+
+
+### Populating 100,000+ reviews for GigReviews for efficient stress testing
+pip install -r data_generation/requirements.txt  
+python data_generation/gigreviews_seeder.py
+
+- [gigreviews_seeder.py](data_generation/gigreviews_seeder.py)
+
+```py
+from datetime import datetime, timezone
+import random
+from faker import Faker
+from pymongo import MongoClient
+
+MONGO_URI = "mongodb://localhost:27017/"
+DATABASE_NAME = "GigTask"
+TOTAL_REVIEWS = 110000
+BATCH_SIZE = 5000
+
+SKILLS = [
+    "Java", "Spring Boot", "Python", "C++",
+    "JavaScript", "React", "Node.js", "SQL",
+    "MongoDB", "AWS", "Docker", "Kubernetes"
+]
+
+fake = Faker()
+
+client = MongoClient(MONGO_URI)
+db = client[DATABASE_NAME]
+collection = db["GigReviews"]
+
+collection.delete_many({})
+batch = []
+
+for i in range(1, TOTAL_REVIEWS + 1):
+    number_of_skills = random.randint(1, 4)
+
+    document = {
+        "freelancer_id": fake.random_int(min=1, max=100000),
+        "rating": fake.random_int(min=1, max=5),
+        "skill_tags": random.sample(SKILLS, number_of_skills),
+        "created_at": datetime.now(timezone.utc)
+    }
+
+    batch.append(document)
+
+    if len(batch) == BATCH_SIZE:
+        collection.insert_many(batch)
+        print(f"Inserted {i} reviews")
+        batch = []
+
+if batch:
+    collection.insert_many(batch)
+
+print("GigReviews data generation completed.")
+print("Total GigReviews:", collection.count_documents({}))
+
+client.close()
+```
+
+## **Task 11 - Performance Proof & Execution Statistics**
+- [mongo_execution_stats.json](performance/mongo_execution_stats.json)
+
+```json
+[
+{
+  "database": "GigTask",
+  "collection_sizes": {
+    "WorkerLocations": 510000,
+    "GigReviews": 110000
+  },
+  "workflow3_geonear": {
+    "description": "Find closest available freelancer within 5 km radius",
+    "job_site": {
+      "type": "Point",
+      "coordinates": [
+        80.2707,
+        13.0827
+      ]
+    },
+    "nearest_freelancer": {
+      "_id": "6a99af892b3bea579bffec05",
+      "worker_id": 57408,
+      "location": {
+        "type": "Point",
+        "coordinates": [
+          80.27033311950396,
+          13.082745150421266
+        ]
+      },
+      "created_at": "2026-09-03T17:34:01.762Z",
+      "is_available": true,
+      "distanceMeters": 40.09691658191861
+    },
+    "executionSuccess": true,
+    "nReturned": 1,
+    "executionTimeMillis": 12,
+    "totalKeysExamined": 288,
+    "totalDocsExamined": 283,
+    "winningStage": "GEO_NEAR_2DSPHERE",
+    "indexName": "location_2dsphere"
+  }
+},
+
+{
+  "database": "GigTask",
+  "collection_sizes": {
+    "WorkerLocations": 510000,
+    "GigReviews": 110000
+  },
+  "workflow4_facet": {
+    "description": "Rating distribution, top skill-tag frequency, and overall worker rating",
+    "rating_distribution": [
+      {
+        "_id": 1,
+        "count": 21905
+      },
+      {
+        "_id": 2,
+        "count": 21998
+      },
+      {
+        "_id": 3,
+        "count": 22230
+      },
+      {
+        "_id": 4,
+        "count": 21843
+      },
+      {
+        "_id": 5,
+        "count": 22024
+      }
+    ],
+    "skill_tag_frequency": [
+      {
+        "_id": "C++",
+        "count": 23069
+      },
+      {
+        "_id": "React",
+        "count": 22999
+      },
+      {
+        "_id": "MongoDB",
+        "count": 22998
+      },
+      {
+        "_id": "Java",
+        "count": 22978
+      },
+      {
+        "_id": "Python",
+        "count": 22955
+      },
+      {
+        "_id": "AWS",
+        "count": 22880
+      },
+      {
+        "_id": "Kubernetes",
+        "count": 22845
+      },
+      {
+        "_id": "SQL",
+        "count": 22828
+      },
+      {
+        "_id": "Docker",
+        "count": 22752
+      },
+      {
+        "_id": "Spring Boot",
+        "count": 22743
+      }
+    ],
+    "overall_average_rating": [
+      {
+        "_id": null,
+        "average_rating": 3.0007545454545457
+      }
+    ],
+    "executionSuccess": true,
+    "nReturned": 1,
+    "executionTimeMillis": 825,
+    "totalKeysExamined": 110000,
+    "totalDocsExamined": 110000,
+    "winningStage": "IXSCAN",
+    "indexName": "rating_created_at_idx"
+  }
+}
+]
 ```
