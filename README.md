@@ -1,6 +1,6 @@
 # GigTask Project Overview
 
-[Github Link of the Project](https://github.com/anujshandillya/GigTask-P5/tree/main)
+[Github Link of the Project](https://github.com/anujshandillya/GigTask-P5)
 
 ### Team 9
 - **Anuj Sharma - 2026201046**
