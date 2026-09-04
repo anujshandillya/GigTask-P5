@@ -1,7 +1,7 @@
 # SSD Assignment - GigTask
 ### Team 9
 - Anuj Sharma - 2026201046
-- Nisarg Bhojani - 2026xxxxxx
+- Nisarg Bhojani - 2026204007
 - Srilatha Kanchamreddy - 2026xxxxxx
 - Vishwanth Beereddy - 2026201024
 
@@ -203,7 +203,7 @@ END;
 $$;
 ```
 
-## **Task X - Python Scripts for data generation**
+## **Task 6 - PostgreSQL Data Generation**
 
 - [.env.example](./.env.example)
 ```js
@@ -229,7 +229,68 @@ seed_wallet_audit_logs(cursor, client_ids=client_ids, target_count=args.audit_lo
 seed_contracts(cursor, fake, client_ids=client_ids, freelancer_ids=freelancer_ids, target_count=args.contracts, batch_size=args.batch_size)
 ```
 
-## **Task 6 - MongoDB Document Structures & Validation Models**
+## **Task 7 - SQL Analytics (Workflow 2)**
+
+- [06_window_analytics.sql](sql/06_window_analytics.sql)
+
+Two analytics queries built on a CTE + window functions, plus a partial
+covering index that specifically supports them:
+
+1. **Daily platform revenue with a 7-day moving average** - groups completed
+   contracts by day, then uses `AVG() OVER (... ROWS BETWEEN 6 PRECEDING AND
+   CURRENT ROW)` to smooth the trend.
+2. **Freelancer revenue ranking** - totals each freelancer's completed-contract
+   revenue, then ranks them with `DENSE_RANK()` so tied earners share a rank.
+
+```sql
+CREATE INDEX IF NOT EXISTS idx_contracts_completed_analytics
+ON contracts (status, freelancer_id, created_at)
+INCLUDE (budget)
+WHERE status = 'COMPLETED';
+
+WITH daily_revenue AS (
+    SELECT created_at::date AS revenue_date, SUM(budget) AS daily_total
+    FROM contracts
+    WHERE status = 'COMPLETED'
+    GROUP BY created_at::date
+)
+SELECT revenue_date, daily_total,
+    ROUND(AVG(daily_total) OVER (
+        ORDER BY revenue_date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
+    ), 2) AS moving_avg_7day
+FROM daily_revenue
+ORDER BY revenue_date;
+
+WITH freelancer_revenue AS (
+    SELECT f.id AS freelancer_id, f.name AS freelancer_name,
+        COUNT(c.id) AS completed_contracts, COALESCE(SUM(c.budget), 0) AS total_revenue
+    FROM freelancers f
+    JOIN contracts c ON c.freelancer_id = f.id AND c.status = 'COMPLETED'
+    GROUP BY f.id, f.name
+)
+SELECT freelancer_id, freelancer_name, completed_contracts, total_revenue,
+    DENSE_RANK() OVER (ORDER BY total_revenue DESC) AS revenue_rank
+FROM freelancer_revenue
+ORDER BY revenue_rank, freelancer_name
+LIMIT 100;
+```
+
+## **Task 8 - Performance Testing (PostgreSQL)**
+
+- [postgres_explain_analyzes.txt](performance/postgres_explain_analyzes.txt)
+
+`EXPLAIN (ANALYZE, BUFFERS)` was run against a full-scale seeded database
+(50k clients, 50k freelancers, 100k contracts, 100k audit logs). Key finding:
+both Workflow 2 queries correctly use a **Sequential Scan** on `contracts`
+because 56% of rows match `status = 'COMPLETED'` - past that selectivity a
+seq scan beats an index scan, and Postgres's cost-based optimizer picks it
+correctly even after the supporting index exists. To prove the index isn't
+dead weight, a third, realistic point-lookup query (one freelancer's
+contract history - 1 match out of 50,000) was also tested and confirmed to
+use `Index Scan using idx_contracts_completed_analytics` at ~5ms. Full
+plans and the reasoning are in the file linked above.
+
+## **Task 9 - MongoDB Document Structures & Validation Models**
 
 ```json
 {
@@ -239,7 +300,7 @@ seed_contracts(cursor, fake, client_ids=client_ids, freelancer_ids=freelancer_id
 }
 ```
 
-## **Task 7 - MongoDB Indexes & Optimization**
+## **Task 10 - MongoDB Indexes & Optimization**
 - [01_collections_and_indexes.js](mongo/01_collections_and_indexes.js)
 
 ```js
@@ -277,7 +338,7 @@ db.WorkerLocations.insertMany([
 print("MongoDB collections, indexes and sample data created successfully.");
 ```
 
-## **Task 8 - Nearest Available Worker Workflow**
+## **Task 11 - Nearest Available Worker Workflow**
 - [02_workflow3_geonear.js](mongo/02_workflow3_geonear.js)
 
 ```js
@@ -361,7 +422,7 @@ const output = {
 print(JSON.stringify(output, null, 2));
 ```
 
-## **Task 9 - Multi-Faceted Review Analytics Workflow**
+## **Task 12 - Multi-Faceted Review Analytics Workflow**
 - [03_workflow4_facet.js](mongo/03_workflow4_facet.js)
 
 ```js
@@ -464,7 +525,7 @@ const output = {
 print(JSON.stringify(output, null, 2));
 ```
 
-## **Task 10 - MongoDB Stress Testing & Data Generation**
+## **Task 13 - MongoDB Stress Testing & Data Generation**
 
 
 ### Provisions 500,000+ geospatial worker location pings and review documents under heavy load
@@ -580,7 +641,7 @@ print("Total GigReviews:", collection.count_documents({}))
 client.close()
 ```
 
-## **Task 11 - Performance Proof & Execution Statistics**
+## **Task 14 - Performance Proof & Execution Statistics (MongoDB)**
 - [mongo_execution_stats.json](performance/mongo_execution_stats.json)
 
 ```json
