@@ -85,7 +85,7 @@ const output = {
         skill_tag_frequency: workflow4Result.length > 0 ? workflow4Result[0].skill_tag_frequency : [],
         overall_average_rating: workflow4Result.length > 0 ? workflow4Result[0].overall_average_rating : [],
         executionSuccess: facetStats.executionSuccess,
-        nReturned: 1,
+        nReturned: workflow4Result.length,
         executionTimeMillis: facetStats.executionTimeMillis,
         totalKeysExamined: facetStats.totalKeysExamined,
         totalDocsExamined: facetStats.totalDocsExamined,
