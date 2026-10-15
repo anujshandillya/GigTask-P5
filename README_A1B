@@ -1,0 +1,206 @@
+# GigTask — Assignment 1B
+
+> **Status:** Backend implementation and initial API testing are complete. The frontend and final submission deliverables are still being completed by the team. Update the marked sections before final submission.
+
+## 1. Project Overview
+
+GigTask is a gig-work platform that uses PostgreSQL for relational data and transactional workflows, and MongoDB for worker locations, reviews, and portfolio documents. Assignment 1B extends the existing Part A project with a backend API and a web frontend.
+
+## 2. Repository Structure
+
+```text
+GigTask-P5/
+├── README.md
+├── docs/
+│   ├── api_endpoints.md
+│   ├── handover_note.md
+│   └── design/                 # Wireframes and user descriptions
+├── sql/                        # Part A SQL scripts
+├── mongo/                      # MongoDB setup and workflow scripts
+├── data_generation/             # Seed and data-generation scripts
+├── api/                        # Node.js backend API
+└── web/                        # Frontend (team deliverable)
+```
+
+The submission guideline shows a folder named `<new_team_number>_a1b/`. This does not, by itself, require renaming the GitHub repository. Confirm the exact submission-folder naming requirement with the course staff.
+
+## 3. Technology Stack
+
+| Component | Technology |
+|---|---|
+| Backend API | Node.js and Express |
+| Relational database | PostgreSQL |
+| Document and geospatial database | MongoDB |
+| PostgreSQL driver | `pg` |
+| MongoDB driver | `mongodb` |
+| Configuration | Environment variables in `api/.env` |
+| Frontend | To be documented by the team after implementation |
+
+## 4. Backend Functionality Implemented
+
+The backend currently exposes these workflows:
+
+1. Health check.
+2. Searchable and paginated client listing.
+3. Searchable and paginated freelancer listing.
+4. Searchable and filterable contract listing.
+5. Gig funding through the PostgreSQL `fund_gig` stored procedure.
+6. Client wallet audit history with date filters.
+7. Freelancer revenue moving-average analytics.
+8. Freelancer rankings using `DENSE_RANK`.
+9. Analytics summary and materialized-view refresh.
+10. Nearby available-worker search using MongoDB `$geoNear` within 5 km.
+11. Review analytics using MongoDB `$facet`.
+12. Freelancer portfolio lookup.
+13. Contract status updates.
+
+See [`docs/api_endpoints.md`](docs/api_endpoints.md) for the API routes, parameters, examples, and expected responses.
+
+### Database responsibilities
+
+- **PostgreSQL** stores relational entities, funding workflows, wallet balances, audit records, and freelancer earnings analytics.
+- **MongoDB** stores worker locations, reviews, and portfolio documents.
+- GeoJSON location coordinates use `[longitude, latitude]` order.
+
+## 5. Prerequisites
+
+Install Node.js, npm, and Git. Docker Engine and Docker Compose are needed if you use the repository's Docker setup.
+
+Check the installed versions:
+
+```bash
+node --version
+npm --version
+docker --version
+docker compose version
+```
+
+## 6. Database Setup
+
+If using the repository's Docker Compose configuration, run these commands from the directory containing `docker-compose.yaml`:
+
+```bash
+docker compose up -d
+docker compose ps
+```
+
+Check `docker-compose.yaml` and `api/.env.example` for the actual service names, ports, database names, and credentials. Do not assume that every machine uses the same local ports.
+
+Apply the SQL scripts in the documented order:
+
+1. `sql/01_schema_ddl.sql`
+2. `sql/02_indexes.sql`
+3. `sql/03_triggers_and_audits.sql`
+4. `sql/04_stored_procedures.sql`
+5. `sql/05_materialized_views.sql`
+6. `sql/06_window_analytics.sql`
+
+Run the MongoDB setup and index scripts from `mongo/` according to the project's instructions. Run data-generation scripts only after confirming the target database and the expected data volume.
+
+**Security:** Create `api/.env` using `api/.env.example` as a template and set values appropriate for your environment. Never commit `api/.env`, passwords, tokens, or other secrets.
+
+## 7. Start the Backend API
+
+From the repository root:
+
+```bash
+cd api
+npm install
+```
+
+Create `api/.env` using the variable names in `.env.example`, with connection values matching the database services running on your machine.
+
+Start the API:
+
+```bash
+npm start
+```
+
+If the project has a development script configured in `package.json`, you can use:
+
+```bash
+npm run dev
+```
+
+Verify the server using:
+
+```text
+http://localhost:3000/api/health
+```
+
+The frontend should use `http://localhost:3000` as its local API base URL unless the API port is changed.
+
+## 8. API Documentation and Handover
+
+- **API reference:** [`docs/api_endpoints.md`](docs/api_endpoints.md)
+- **Backend handover and integration instructions:** [`docs/handover_note.md`](docs/handover_note.md)
+
+The handover note describes how to start the backend, the available routes, and integration details for the frontend team.
+
+## 9. Frontend Integration
+
+The frontend team should:
+
+- Configure a single API base URL.
+- Connect the browse pages to the clients, freelancers, and contracts endpoints.
+- Implement pagination, search, and contract filters.
+- Connect the funding form and display the returned balance-before and balance-after values.
+- Display audit history and date filters.
+- Connect the analytics, rankings, refresh, nearby-worker, review, and portfolio workflows.
+- Handle loading, empty, validation, and server-error states.
+- Support contract status updates and display conflicts clearly.
+- Test the integrated frontend against the running API and seeded data.
+- Add wireframes and user descriptions under `docs/design/`.
+- Add screenshots and frontend setup instructions before final submission.
+
+**Update this section** with the actual frontend framework, install/start commands, routes, screens, and configuration once implementation is complete.
+
+## 10. Testing Status
+
+The backend health endpoint and representative API workflows were tested during development. Further testing can be prioritized if frontend integration reveals an issue, followed by final end-to-end verification.
+
+Before final submission, verify:
+
+- [ ] Health check and database connectivity.
+- [ ] Client, freelancer, and contract listing, search, and pagination.
+- [ ] Successful and invalid gig-funding requests.
+- [ ] Audit history and date filters.
+- [ ] Analytics endpoints and materialized-view refresh.
+- [ ] Nearby-worker search using coordinates matching the seeded data.
+- [ ] Review analytics and portfolio lookup.
+- [ ] Valid and invalid contract status transitions.
+- [ ] Frontend-to-backend integration.
+
+Add the final test results and relevant screenshots after the team completes integrated testing.
+
+## 11. Team Contributions
+
+Replace the placeholders with each member's actual work before submission.
+
+| Team member | Contribution |
+|---|---|
+| Srilatha Kanchamreddy | Backend API implementation, database integration, API documentation, and backend handover |
+| Team member 2 | To be completed by the team |
+| Team member 3 | To be completed by the team |
+| Team member 4 | To be completed by the team |
+
+## 12. Final Submission Checklist
+
+- [x] Backend API committed and pushed to `feature/backend-api`.
+- [x] `docs/api_endpoints.md` prepared and added to the repository.
+- [ ] Add and commit `docs/handover_note.md`.
+- [ ] Complete the frontend under `web/`.
+- [ ] Add wireframes and user descriptions under `docs/design/`.
+- [ ] Add screenshots.
+- [ ] Finalize setup instructions and technology choices.
+- [ ] Complete the contribution table.
+- [ ] Add the repository URL and final submission commit hash.
+- [ ] Add the demo link (maximum five minutes, according to the submission guideline).
+- [ ] Perform final integrated testing and verify the required folder structure.
+
+## 13. Repository Details
+
+- **Repository:** https://github.com/srilathakanchamreddy/GigTask-P5
+- **Backend branch:** `feature/backend-api`
+- **Final submission commit:** Update this after the team's final changes are ready.
+- **Demo link:** Add after recording and uploading the demo.

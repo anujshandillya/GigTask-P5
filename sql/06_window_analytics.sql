@@ -11,27 +11,68 @@ ON contracts (status, freelancer_id, created_at)
 INCLUDE (budget)
 WHERE status = 'COMPLETED';
 
--- Workflow 2 Part A: platform-wide daily revenue with a 7-day moving average
-WITH daily_revenue AS (
-    SELECT
-        created_at::date AS revenue_date,
-        SUM(budget) AS daily_total
-    FROM contracts
-    WHERE status = 'COMPLETED'
-    GROUP BY created_at::date
+-- -- Workflow 2 Part A: platform-wide daily revenue with a 7-day moving average
+-- WITH daily_revenue AS (
+--     SELECT
+--         created_at::date AS revenue_date,
+--         SUM(budget) AS daily_total
+--     FROM contracts
+--     WHERE status = 'COMPLETED'
+--     GROUP BY created_at::date
+-- )
+-- SELECT
+--     revenue_date,
+--     daily_total,
+--     ROUND(
+--         AVG(daily_total) OVER (
+--             ORDER BY revenue_date
+--             ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
+--         ),
+--     2) AS moving_avg_7day
+-- FROM daily_revenue
+-- ORDER BY revenue_date;
+-- Workflow 2 Part A: 7-day moving average revenue PER FREELANCER (Dense Calendar)
+WITH DateRange AS (
+    SELECT generate_series(
+        (SELECT MIN(DATE(created_at)) FROM contracts WHERE status = 'COMPLETED'),
+        (SELECT MAX(DATE(created_at)) FROM contracts WHERE status = 'COMPLETED'),
+        '1 day'::interval
+    )::date AS calendar_date
+),
+FreelancerDates AS (
+    -- CROSS JOIN ensures every freelancer has a row for every single calendar day
+    SELECT f.id AS freelancer_id, f.name AS freelancer_name, d.calendar_date
+    FROM freelancers f
+    CROSS JOIN DateRange d
+),
+DailyRevenue AS (
+    -- LEFT JOIN forces $0 on days the freelancer didn't complete a contract
+    SELECT 
+        fd.freelancer_id,
+        fd.freelancer_name,
+        fd.calendar_date AS revenue_date,
+        COALESCE(SUM(c.budget), 0) AS daily_total
+    FROM FreelancerDates fd
+    LEFT JOIN contracts c 
+        ON fd.freelancer_id = c.freelancer_id 
+        AND fd.calendar_date = DATE(c.created_at)
+        AND c.status = 'COMPLETED'
+    GROUP BY fd.freelancer_id, fd.freelancer_name, fd.calendar_date
 )
-SELECT
+SELECT 
+    freelancer_id,
+    freelancer_name,
     revenue_date,
     daily_total,
     ROUND(
         AVG(daily_total) OVER (
-            ORDER BY revenue_date
+            PARTITION BY freelancer_id
+            ORDER BY revenue_date 
             ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
-        ),
+        ), 
     2) AS moving_avg_7day
-FROM daily_revenue
-ORDER BY revenue_date;
-
+FROM DailyRevenue
+ORDER BY freelancer_name, revenue_date;
 -- Workflow 2 Part B: revenue per freelancer, ranked with DENSE_RANK so tied
 -- earners share a rank instead of skipping positions
 WITH freelancer_revenue AS (

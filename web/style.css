@@ -1,0 +1,315 @@
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f0f2f5;
+    color: #333;
+    padding: 20px;
+}
+
+
+.nav-container {
+    display: flex;
+    gap: 10px;
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.nav-btn {
+    flex: 1; 
+    text-align: center;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background-color: #e9ecef;
+    color: #495057;
+    white-space: nowrap; 
+}
+
+.nav-btn:hover {
+    background-color: #dee2e6;
+    transform: translateY(-2px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.nav-btn.browse {
+    background-color: #e0f2fe; 
+    color: #0369a1; 
+}
+.nav-btn.browse:hover {
+    background-color: #bae6fd;
+}
+
+.nav-btn.transaction {
+    /*background-color: #d1e7dd;
+    color: #0f5132;*/
+    background-color: #e0f2fe; 
+    color: #0369a1; 
+}
+.nav-btn.transaction:hover {
+    /*background-color: #badbcc;*/
+    background-color: #bae6fd;
+}
+
+.nav-btn.audit {
+   /* background-color: #e0cffc;
+    color: #3b0a7d;*/
+    background-color: #e0f2fe; 
+    color: #0369a1; 
+}
+.nav-btn.audit:hover {
+    /*background-color: #d1bafb;*/
+    background-color: #bae6fd;
+}
+.nav-btn.analytics {
+    /*background-color: #cff4fc;
+    color: #055160;*/
+    background-color: #e0f2fe; 
+    color: #0369a1; 
+}
+.nav-btn.analytics:hover {
+    /*background-color: #b6effb;*/
+    background-color: #bae6fd;
+}
+
+.nav-btn.map {
+   /* background-color: #f8d7da;
+    color: #842029;*/
+    background-color: #e0f2fe; 
+    color: #0369a1; 
+}
+.nav-btn.map:hover {
+    /*background-color: #f5c2c7;*/
+    background-color: #bae6fd;
+}
+
+.nav-btn.reviews {
+    /*background-color: #fff3cd;
+    color: #664d03;*/
+    background-color: #e0f2fe; 
+    color: #0369a1; 
+}
+.nav-btn.reviews:hover {
+    /*background-color: #ffecb5;*/
+    background-color: #bae6fd;
+}
+.card {
+    background-color: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    transition: box-shadow 0.2s ease;
+}
+
+.card:hover {
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+.card h3 {
+    margin-top: 0;
+    color: #212529;
+}
+input[type="text"],
+input[type="number"],
+input[type="date"],
+select {
+    padding: 10px 15px;
+    border: 1px solid #ced4da;
+    border-radius: 5px;
+    font-size: 15px;
+    color: #495057;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    outline: none;
+    background-color: white;
+    cursor: pointer;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="date"]:focus,
+select:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.25);
+}
+
+.controls:not(.nav-container) {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+button:not(.nav-btn) {
+    padding: 10px 18px;
+    border: none;
+    border-radius: 5px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    
+    background-color: #0d6efd; 
+    color: white;
+}
+
+button:not(.nav-btn):hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    filter: brightness(1.15);
+}
+
+button:not(.nav-btn):disabled {
+    background-color: #ced4da !important;
+    color: #6c757d !important;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+    filter: none;
+}
+
+.controls:last-child button {
+    background-color: #6c757d;
+}
+
+#data-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+#data-container .card {
+    margin-bottom: 0; 
+}
+
+#data-container > div:only-child {
+    grid-column: 1 / -1;
+}
+
+.badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 50px; 
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.badge-funded {
+    background-color: #cfe2ff;
+    color: #084298;
+}
+
+.badge-inprogress {
+    background-color: #fff3cd;
+    color: #664d03;
+}
+
+.badge-completed {
+    background-color: #d1e7dd;
+    color: #0f5132;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    margin: 0 auto;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #0d6efd;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #6c757d;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border: 1px dashed #ced4da;
+    font-weight: 500;
+}
+
+.module-card {
+    background-color: white;
+    padding: 25px;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+#pagination-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    margin-top: 30px;
+    margin-bottom: 20px;
+}
+
+#pagination-container button {
+    background-color: #6c757d;
+}
+
+#search-container {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.nav-container .nav-btn.active {
+filter: brightness(0.88);
+box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.45),
+0 3px 8px rgba(0, 0, 0, 0.12);
+font-weight: 800;
+transform: translateY(-1px);
+}
+
+.screen-message {
+    grid-column: 1 / -1;
+    padding: 24px;
+    margin: 10px 0;
+    text-align: center;
+    background: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    color: #495057;
+}
+
+.screen-message.error {
+    background: #fff5f5;
+    border-color: #f1aeb5;
+    color: #842029;
+}
+
+.screen-message.empty {
+    background: #f8f9fa;
+    color: #6c757d;
+}
+
+.screen-message button {
+    margin-top: 12px;
+}
+
+.screen-message.error button {
+    background-color: #6c757d;
+    color: white;
+}
+
+.screen-message.error button:hover {
+    background-color: #5a6268;
+}

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GigTask Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h1 style="margin: 0; color: #084298;">GigTask Dashboard</h1>
+        <!-- A simple way to switch between users/actors for demo purposes -->
+        <select id="actor-switcher" style="min-width: 250px;">
+            <option value="">-- Select Client to Act As --</option>
+        </select>
+    </header>
+
+    <main>
+        <h2 id="page-title" style="margin-top: 0; color: #212529;">Browse Platform</h2>
+        
+        <!-- Navigation Bar -->
+        <div class="tabs controls nav-container">
+            <button id="btn-clients" class="nav-btn browse">Clients</button>
+            <button id="btn-freelancers" class="nav-btn browse">Freelancers</button>
+            <button id="btn-contracts" class="nav-btn browse">Contracts</button>
+    
+            <button id="btn-transaction" class="nav-btn transaction">Fund a Gig</button>
+            <button id="btn-audit" class="nav-btn audit">Audit Trail</button>
+    
+            <button id="btn-analytics" class="nav-btn analytics">Analytics</button>
+            <button id="btn-map" class="nav-btn map">Nearby Workers</button>
+            <button id="btn-reviews" class="nav-btn reviews">Reviews & Portfolios</button>
+        </div>
+
+        <!-- Global Search -->
+        <div id="search-container">
+            <input type="text" id="search-input" placeholder="Search... (Press Enter)" style="width:100%; max-width: 400px;">
+        </div>
+
+        <!-- Fund a Gig -->
+        <!-- <div id="transaction-container" class="card module-card" style="display: none; border-top: 4px solid #198754;"> -->
+            <!-- <h3 style="color: #198754;">Fund a New Gig</h3> -->
+        <div id="transaction-container" class="card module-card" style="display: none; border-top: 4px solid #0369a1;">
+            <h3 style="color: #0369a1;">Fund a New Gig</h3>
+            <p><small style="color: #6c757d;">Select a Client from the top-right dropdown first!</small></p>
+            
+            <div class="controls">
+                <input type="text" id="trans-freelancer-id" placeholder="Paste Freelancer UUID here" style="flex: 2; max-width: 350px;">
+                <input type="number" id="trans-budget" placeholder="Budget ($)" style="flex: 1; max-width: 150px;">
+                <!-- <button id="submit-transaction" style="background-color: #198754; color: white;">Submit Payment</button> -->
+                <button id="submit-transaction" style="background-color: #e0f2fe; color: #0369a1">Submit Payment</button>
+            </div>
+            
+            <div id="transaction-result" style="margin-top: 15px; padding: 10px; display: none; border-radius: 5px;"></div>
+        </div>
+
+        <!-- Audit Trail -->
+        <!-- <div id="audit-container" class="card module-card" style="display: none; border-top: 4px solid #0d6efd;">
+            <h3 style="color: #0d6efd;">Client Audit Trail</h3> -->
+        <div id="audit-container" class="card module-card" style="display: none; border-top: 4px solid #0369a1;">
+            <h3 style="color: #0369a1;">Client Audit Trail</h3>
+
+            <p><small style="color: #6c757d;">Select a Client from the top-right dropdown to view their history.</small></p>
+            
+            <div class="controls" style="margin-bottom: 15px;">
+                <label style="font-weight: 600; color: #495057;">From: <input type="date" id="audit-from"></label>
+                <label style="font-weight: 600; color: #495057;">To: <input type="date" id="audit-to"></label>
+                <!-- <button id="btn-fetch-audit" >Fetch Audit Logs</button> -->
+                <button id="btn-fetch-audit" style="background-color: #e0f2fe; color: #0369a1">Fetch Audit Logs</button>
+            </div>
+            
+            <div id="audit-results"></div>
+        </div>
+
+        <!-- Analytics Dashboard -->
+        <div id="analytics-container" style="display: none;">
+            <div class="card module-card" style="border-top: 4px solid #0369a1; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0; color: #0369a1;">Platform Summary</h3>
+                    <button id="btn-refresh-mv" style="background-color: #e0f2fe; color: #0369a1;">Refresh View</button>
+                </div>
+                <p id="summary-data" style="font-size: 1.1em; margin-top: 15px;">Loading summary metrics...</p>
+            </div>
+
+            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                <div class="card" style="flex: 1; min-width: 300px;">
+                    <h4 style="color: #495057; border-bottom: 1px solid #eee; padding-bottom: 10px;">Top Freelancers</h4>
+                    <div id="ranking-data" style="max-height: 300px; overflow-y: auto; padding-right: 10px;"></div>
+                </div>
+                
+                <!-- <div class="card" style="flex: 1; min-width: 300px;">
+                    <h4 style="color: #495057; border-bottom: 1px solid #eee; padding-bottom: 10px;">7-Day Moving Average</h4>
+                    <canvas id="revenueChart"></canvas>
+                </div> -->
+                <!-- <div class="card" style="flex: 1; min-width: 300px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px;">
+                        <h4 style="color: #495057; margin: 0; border: none; padding: 0;">7-Day Moving Average</h4>
+                        <div style="display: flex; gap: 5px;">
+                            <input type="text" id="chart-freelancer-id" placeholder="Freelancer ID (e.g. 1)" style="max-width: 170px; padding: 4px;">
+                            <button id="btn-fetch-chart" style="background-color: #e0f2fe; color: #0369a1; padding: 4px 10px; border: 1px solid #bae6fd; cursor: pointer;">View</button>
+                        </div>
+                    </div>
+                    <canvas id="revenueChart"></canvas>
+                </div> -->
+                <div class="card" style="flex: 1; min-width: 300px;">
+                    <div style="border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h4 style="color: #495057; margin: 0;">7-Day Moving Average</h4>
+                            <select id="chart-freelancer-select" style="max-width: 200px; padding: 5px; border: 1px solid #ccc; border-radius: 4px;">
+                                <option value="all">Whole Platform</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; gap: 5px; justify-content: flex-end;">
+                            <input type="text" id="chart-search-input" placeholder="Paste Freelancer ID..." style="padding: 4px; max-width: 170px;">
+                            <button id="btn-chart-search" style="background-color: #e0f2fe; color: #0369a1; padding: 4px 10px; border: 1px solid #bae6fd; cursor: pointer;">Search</button>
+                        </div>
+                    </div>
+                    <canvas id="revenueChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Map View -->
+        <div id="map-container" class="card module-card" style="display: none; border-top: 4px solid #0369a1;">
+            <h3 style="color: #0369a1;">Find Nearby Workers</h3>
+            <p><small style="color: #6c757d;">Pings appear without a full page reload.</small></p>
+            
+            <div class="controls" style="margin-bottom: 20px;">
+                <input type="number" id="map-lat" value="13.0827" step="0.0001" placeholder="Latitude">
+                <input type="number" id="map-lng" value="80.2707" step="0.0001" placeholder="Longitude">
+                <button id="btn-search-map" style="background-color: #e0f2fe; color: #0369a1;">Search Area</button>
+            </div>
+            
+            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                <!-- Replaced inline borders with .card classes -->
+                <div id="leaflet-map" class="card" style="height: 400px; flex: 2; padding: 0; overflow: hidden; z-index: 1;"></div>
+                <div id="map-results" class="card" style="flex: 1; max-height: 400px; overflow-y: auto;">
+                    <div class="empty-state">
+                        <p>Enter coordinates and click Search Area.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reviews & Portfolios -->
+        <div id="reviews-container" style="display: none;">
+            <div style="display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;">
+                <div class="card" style="flex: 1; min-width: 300px; border-top: 4px solid #0369a1;">
+                    <h4 style="color: #0369a1;">Rating Distribution</h4>
+                    <p id="avg-rating" style="font-size: 1.2em;">Average Rating: --</p>
+                    <canvas id="ratingChart"></canvas>
+                </div>
+                <div class="card" style="flex: 1; min-width: 300px; border-top: 4px solid #0369a1;">
+                    <h4 style="color: #0369a1;">Top Skills Tagged</h4>
+                    <canvas id="skillsChart"></canvas>
+                </div>
+            </div>
+
+            <div class="card module-card" style="border-top: 4px solid #0369a1;">
+                <h3 style="color: #0369a1;">Search Freelancer Portfolio</h3>
+                <div class="controls" style="margin-bottom: 10px;">
+                    <input type="text" id="portfolio-id" placeholder="Enter Freelancer ID (e.g., 1 or 2)" style="max-width: 300px;">
+                    <button id="btn-search-portfolio" style="background-color: #e0f2fe; color: #0369a1;">View Portfolio</button>
+                </div>
+                <div id="portfolio-results"></div>
+            </div>
+            <div class="card module-card" style="border-top: 4px solid #0369a1; margin-top: 20px;">
+                <h3 style="color: #0369a1;">Freelancer Reviews</h3>
+                <div id="reviews-list-results" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin-top: 15px;">
+                    <!-- Reviews will be injected here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Animated Loading Spinner -->
+        <div id="loading-spinner" style="display: none; text-align: center; padding: 50px 0;">
+            <div class="spinner"></div>
+            <p style="color: #6c757d; margin-top: 15px; font-weight: 600;">Loading data...</p>
+        </div>
+
+        <!-- Main Data Container (Grid) -->
+        <h3 id="list-heading" style="margin-bottom: 15px; color: #084298;">
+            Clients List
+        </h3>
+
+        <!-- Main Data Container (Grid) -->
+        <div id="data-container"></div>
+        
+        <!-- Pagination controls -->
+        <div id="pagination-container">
+            <button id="btn-prev">Previous</button>
+            <span id="page-info" style="font-weight: 600; padding: 0 15px; color: #495057;">Page 1</span>
+            <button id="btn-next">Next</button>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>

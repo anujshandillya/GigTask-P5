@@ -3,3 +3,9 @@
 __pycache__/
 *.pyc
 .venv/
+api/.env
+api/node_modules/
+data_generation/venv/
+.env
+data_generation/venv/
+.env
